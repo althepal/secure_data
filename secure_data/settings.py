@@ -5,8 +5,8 @@ import os
 ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')
 
 import socket
-if socket.gethostname() == 'atp':
-	STATIC_URL = 'http://secure2.az9.us'
+if socket.gethostname() == '': # set this to the hostname on your prod server
+	STATIC_URL = '' # set this to the URL to server static files from
 else:
 	STATIC_URL = '/static/'
 DEBUG = True
