@@ -1,0 +1,465 @@
+{% extends "secure_base.html" %}
+{% load staticfiles %}
+
+{% block jquery_ready %}
+loadDataList()
+$('#encrypt_pass').keyup(function(e){
+	var code = e.keyCode ? e.keyCode : e.which;
+	if (code == 13)
+	{
+		$(this).blur();
+		saveData()
+	}
+});
+$('#plain_title').keypress(function(){
+	$('#overwrite').prop('checked', false);
+});
+$('#plain_text').change(function(){
+	text_changed = true;
+});
+{% endblock %}
+
+{% block add_header %}
+<script type="text/javascript" src="{% static "js/sjcl.js" %}"></script>
+<script>
+	var secret_code_len = 15;
+	var last_secret_code = [];
+	var stored_data = {}
+	var pass_confirmed = false;
+	text_changed = false;
+
+	{% for d in stored_data %}
+	stored_data['{{ d.title }}'] = { data: '{{ d.data|safe }}', mod: '{{ d.last_mod|date:"U" }}' };
+	{% endfor %}
+
+	function loadDataList()
+	{
+		var dataList = "";
+		for (t in stored_data)
+		{
+			dataList += "<div class='stored_row'>";
+			var d = new Date(0);
+			d.setUTCSeconds(stored_data[t].mod)
+			var ford = $.format.date(d, "MMM d, yyyy HH:mm");
+			dataList += "<div class='listTitle'><b>" + t + '</b><br>' + ford + "</div> "
+			dataList += "<input type=button value='View' onclick='loadTitle(true, \""+t+"\")'> "
+			dataList += "<input type=button value='Edit' onclick='loadTitle(false, \""+t+"\")'> "
+			dataList += "<input type=button value='Delete' onclick='delTitle(\""+t+"\")'><br>";
+			dataList += "<div style='clear:both'></div></div>"
+		}
+		if (dataList == '')
+		{
+			dataList = '-- none --';
+		}
+		$('#theData').html(dataList);
+	}
+
+	function delTitle(title)
+	{
+		$.msgBox({
+			type: "prompt",
+			title: "Enter password for <b>" + title +"</b>:",
+			inputs: [
+				{ header: "Pass", type: "password", name: "Pass"}
+			],
+			buttons: [
+			{ value: "Submit" }, {value: "Cancel"}
+			],
+			success: function(result, values){
+				if (result == "Submit")
+				{
+					var enc = stored_data[title].data;
+					var pass = values[0].value;
+					try
+					{
+						var plain_with_code = sjcl.decrypt(pass, enc);
+						var len = plain_with_code.length;
+						var plain = plain_with_code.substring(0, len - secret_code_len);
+						var secret_code = plain_with_code.substring(len - secret_code_len);
+						sendDelTitle(title, secret_code);
+					}
+					catch(e)
+					{
+						errorBox("bad password");
+					}
+
+				}
+			},
+		});
+		$('input[name="Pass"]').focus().keypress(function(e){
+			code = e.keyCode ? e.keyCode : e.which;
+			if (code == 13) {
+				$('input[name="Submit"]').click();
+			}
+		});
+
+	}
+
+	function loadTitle(view, title)
+	{
+		if (!view && text_changed)
+		{
+			confirmClear(title)
+			return;
+		}
+		$.msgBox({
+			type: "prompt",
+			title: "Enter password for <b>" + title +"</b>:",
+			inputs: [
+				{ header: "Pass", type: "password", name: "Pass"}
+			],
+			buttons: [
+			{ value: "Decrypt" }, {value: "Cancel"}
+			],
+			success: function(result, values){
+				if (result == "Decrypt")
+				{
+					var enc = stored_data[title].data;
+					var pass = values[0].value;
+					try
+					{
+						var plain_with_code = sjcl.decrypt(pass, enc);
+						var len = plain_with_code.length;
+						var plain = plain_with_code.substring(0, len - secret_code_len);
+						var secret_code = plain_with_code.substring(len - secret_code_len);
+
+						if (view)
+							viewPlain(title, plain);
+						else
+						{
+							last_secret_code = [title, secret_code];
+							loadPlain(title, plain);
+						}
+					}
+					catch(e)
+					{
+						errorBox("bad password");
+					}
+
+				}
+			},
+		});
+		$('input[name="Pass"]').focus().keypress(function(e){
+			code = e.keyCode ? e.keyCode : e.which;
+			if (code == 13) {
+				$('input[name="Decrypt"]').click();
+			}
+		});
+
+	}
+
+	function viewPlain(title, msg)
+	{
+		var html = "<h1>" + title + "</h1>" + msg;
+		$('#view_popup').html(html).bPopup();
+	}
+
+	function loadPlain(title, msg)
+	{
+		$('#plain_title').val(title); 
+		$('#plain_text').val(msg);
+		$('#encrypt_pass').val("");
+		$('#overwrite').prop('checked', true);
+		text_changed = false;
+	}
+
+	function saveComplete(data)
+	{
+		console.log(data)
+		var code = data.code;
+		if (code == 'OK')
+		{
+			if (!stored_data[data.title])
+				stored_data[data.title] = {};
+			stored_data[data.title].data = data.data;
+			stored_data[data.title].mod = new Date().valueOf() / 1000;
+			loadDataList();
+			clearPlain(true);
+			infoBox("Save complete");
+		}
+		else
+		{
+			var reason = data.reason;
+			errorBox("Save Failed: " + reason);
+
+		}
+	}
+	function promptPass(match_pass)
+	{
+		var promptTitle = "Confirm password";
+		var goLabel = "Confirm";
+		$.msgBox({
+			type: "prompt",
+			title: promptTitle,
+			inputs: [
+				{ header: "Pass", type: "password", name: "Pass"}
+			],
+			buttons: [
+			{ value: goLabel }, {value: "Cancel"}
+			],
+			success: function(result, values){
+				if (result == goLabel)
+				{
+					var pass = values[0].value;
+					if (pass == match_pass)
+						saveData(true);
+					else
+						errorBox("Passords do not match");
+				}
+			},
+		});
+		$('input[name="Pass"]').focus().keypress(function(e){
+			code = e.keyCode ? e.keyCode : e.which;
+			if (code == 13) {
+				$('input[name='+goLabel+']').click();
+			}
+		});
+	}
+
+	function deleteComplete(data)
+	{
+		if (data.code == 'OK')
+		{
+			title = data.title;
+			delete stored_data[title];
+			loadDataList();
+		}
+		else
+		{
+			var reason = data.reason;
+			errorBox("DELETE FAILED: " + reason);
+		}
+	}
+	function sendDelTitle(title, secret_code)
+	{
+	$.ajax({
+		type: "POST",
+		url: "delByTitle",
+		data: {title: title, secret_code: secret_code },
+		}).done(function(data){
+		deleteComplete(data);
+//		console.log(data);
+		}).fail(function(faildata){
+			var msg = "Sever error: " + failData.status + " " + failData.statusText;
+			errorBox(msg);
+		})
+	}
+	var defaults = { v:1, iter:1000, ks:256, ts:64, mode:"ccm", adata:"", cipher:"aes" };
+	function saveData(confirmed)
+	{
+		var plain = $('#plain_text').val();
+		var pass = $('#encrypt_pass').val();
+		var title = $('#plain_title').val();
+
+		if (pass.length < 6)
+		{
+			errorBox("invalid pass");
+			return;
+		}
+
+		if (!title)
+		{
+			errorBox('no title');
+			return;
+		}
+
+		if (/['"]/.test(title))
+		{
+			errorBox('illegal character in title');
+			return;
+		}
+
+		if (!plain)
+		{
+			errorBox('no data');
+			return;
+		}
+		if (!confirmed)
+		{
+			promptPass(pass);
+			return;
+		}
+		var secret_code = makeid();
+		var plain_with_code = plain + secret_code;
+
+		var params = jQuery.extend(true, {}, defaults);
+		params.adata = title;
+
+		rp = {};
+		var enc = sjcl.encrypt(pass, plain_with_code, params, rp);
+
+		var overwrite = $('#overwrite').is(":checked") ? 1 : 0;
+		if (!enc)
+		{
+			errorBox("No data");
+			return;
+		}
+		if (!title)
+		{
+			errorBox("Missing title");
+			return;
+		}
+		var old_secret = "";
+		if (overwrite && (last_secret_code[0] == title))
+			old_secret = last_secret_code[1]
+
+		$.ajax({
+			type: "POST",
+			url: 'saveSecure',
+			data: { title: title, data: enc, overwrite: overwrite, secret_code: secret_code, old_secret: old_secret },
+			}).done(function(data){
+			saveComplete(data);
+			}).fail(function(failData){
+			var msg = "Server error: " + failData.status + " " + failData.statusText;
+			errorBox(msg);
+			console.log("FAIL: ", failData)
+			});
+
+	}
+
+	function confirmClear(title)
+	{
+		$.msgBox({
+			type: "confirm",
+			title: "Unsaved changes exist.",
+			content: "Discard changes?",
+			buttons: [{value: "Discard"}, { value: "Cancel"}],
+			success: function (result) {
+				if (result == "Discard")
+				{
+					clearPlain(true)
+					if (title)
+					{
+						loadTitle(false, title);
+					}
+				}
+			}
+		});
+	}
+	function clearPlain(force)
+	{
+		if (!force && text_changed)
+		{
+			confirmClear();
+			return;
+		}
+		$('#plain_text').val("");
+		$('#encrypt_pass').val("");	
+		$('#plain_title').val("");	
+		$('#overwrite').prop('checked', false);
+		last_secret_code = [];
+		text_changed = false;
+	}
+	function infoBox(msg)
+	{   
+		$.msgBox({
+			title: "Message",
+			content: msg,
+			type: "info",
+			opacity: 0.5,
+			showButtons: false,
+		});
+	}
+	function errorBox(msg)
+	{
+		$.msgBox({
+			title: "Ooops",
+			content: msg,
+			type: "error",
+			opacity: 0.5,
+			showButtons: false,
+		});
+	}
+	function makeid()
+	{
+		var text = "";
+		var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+		for( var i=0; i < secret_code_len; i++ )
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+		return text;
+	}
+</script>
+
+<style>
+	h1 { margin-top: 0px; margin-bottom: 10px; }
+	.ta {
+		height: 250px;
+		width: 350px;
+	}
+	.mainDivs {
+		float: left;
+		width: 400px;
+	}
+	.textin {
+		width: 200px;
+	} 
+	#stored_data_div {
+		padding: 5px;
+		float: left;
+		width: 400px;
+		background-color: #DDDDDD;
+		margin-right: 10px;
+	} 
+	.listTitle {
+		width: 175px;
+		float: left;
+	}
+	.stored_row {
+		padding-top: 5px;
+		padding-bottom: 5px;
+		XXborder-top: 1px solid black;
+		border-bottom: 1px solid black;
+	}
+	#content {
+		padding: 10px;
+	}
+	#view_popup {
+		display: none;
+		position: absolute;
+		background-color: white;
+		border: 2px solid red;
+		white-space: pre;
+		padding: 10px;
+	}
+	.round {
+		border-radius: 13px; -webkit-border-radius: 13px; -moz-border-radius: 13px;
+	}
+	.big_text {
+		font-size: 150%;
+	}
+	#explain_it {
+		width: 700px;
+		padding: 10px;
+	}
+</style>
+{% endblock %}
+
+{% block body %}
+
+<div id='content'>
+	<div id='explain_it'>
+		<h1>Store data securely</h1>
+		<p>Store data that can only be accessed by you. All encryption and decryption is done in your browser, using the password that you enter, when you enter it. The data that is stored on the server is always encrypted, so even the web site operator cannot access your data.
+		<p>Encryption is done using industry standard AES encryption, which is virtually uncrackable. The library used is the Stanford Javascript Crypto Library (<a href='http://crypto.stanford.edu/sjcl/'>More info can be found here.</a>).
+	</div>
+<div id='stored_data_div' class=round>
+	<h1 style='border-bottom: 1px solid black;'>Stored Data</h1>
+	<div id='theData'>
+	</div>
+</div>
+
+<div style='' class='mainDivs'>
+	<span class='big_text'><b>Title:</b> </span><input tabindex="1" type=text id='plain_title' class='textin big_text'>
+	<input type=button id='clearData' value='Clear Data' onclick='clearPlain()'><br>
+	<textarea tabindex="2" class='ta' id='plain_text'></textarea><br>
+	Password: <input tabindex="3" type=password id='encrypt_pass' class='textin'><br>
+	<input tabindex="4" type=button id='saveButt2' value='Save' onclick='saveData()' Xdisabled=true>
+	<input type=checkbox id='overwrite' Xdisabled=true> Overwrite Data
+	<br>
+</div>
+
+</div>
+<div id='view_popup' class=round></div>
+{% endblock %}

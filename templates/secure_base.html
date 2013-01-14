@@ -1,0 +1,37 @@
+{% load staticfiles %}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>{{ title }}</title>
+		<link rel='icon' type='image/x-icon' href="{% static "images/favicon.ico" %}">
+		<script>
+			var ag_image_path = "{% static "images" %}";
+			function get_image_path(){ return ag_image_path }
+		</script>
+		<script type="text/javascript" src="{% static "js/jquery-1.8.2.min.js" %}"></script>
+		<script type="text/javascript" src="{% static "js/jquery.dateFormat-1.0.js" %}"></script>
+		<script type="text/javascript" src="{% static "js/jquery.bpopup-0.7.0.min.js" %}"></script>
+		<script type="text/javascript" src="{% static "msgBox/Scripts/jquery.msgBox.js" %}"></script>
+		<link rel="stylesheet" href="{% static "msgBox/Styles/msgBoxLight.css" %}" type="text/css" media="screen" charset="utf-8" />
+{% block add_header %}
+{% endblock %}
+{% block add_header2 %}
+{% endblock %}
+		<script type="text/javascript">
+			$(function(){
+{% block jquery_ready %}{% endblock %}
+{% block jquery_ready2 %}{% endblock %}
+					});
+		</script>
+	</head>
+	<body>
+{% block body %}
+{% endblock %}
+
+{% block load_js %}
+{% endblock %}
+	</body>
+</html>
+
