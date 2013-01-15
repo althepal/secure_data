@@ -3,6 +3,8 @@ from django.utils import simplejson
 from encrypt.models import SecureData
 from django.views.decorators.csrf import csrf_exempt
 
+MAX_TITLE_LEN = 40
+
 def json_response(ret_data):
 	msg = simplejson.dumps(ret_data)
 	return HttpResponse(msg, mimetype='application/json')
@@ -12,6 +14,7 @@ def index(request):
 	context = {
 			'title': "Secure Data",
 			'stored_data': stored_data,
+			'max_title_len': MAX_TITLE_LEN,
 			}
 	return render(request, 'secure_data.html', context)
 
@@ -23,10 +26,10 @@ def save_secure(request):
 	secret_code = request.POST['secret_code']
 	old_secret = request.POST['old_secret']
 
-	if len(title) > 40:
+	if len(title) > MAX_TITLE_LEN:
 		response = {
 				'code': "Fail",
-				'reason': 'Title too long (max len 40)',
+				'reason': 'Title too long (max len {})'.format(MAX_TITLE_LEN),
 				}
 		return json_response(response)
 
