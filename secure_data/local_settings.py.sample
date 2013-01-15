@@ -1,0 +1,4 @@
+envir = {
+		'hostname' : '',
+		'static_url' : ''
+		}

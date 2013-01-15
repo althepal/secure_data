@@ -1,12 +1,13 @@
 import os
+from local_settings import envir
 # Django settings for secure_data project.
 
 #ROOT_DIR = os.getcwd()
 ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')
 
 import socket
-if socket.gethostname() == '': # set this to the hostname on your prod server
-	STATIC_URL = '' # set this to the URL to server static files from
+if socket.gethostname() == envir['hostname']: # set this to the hostname on your prod server
+	STATIC_URL = envir['static_url'] # set this to the URL to server static files from
 else:
 	STATIC_URL = '/static/'
 DEBUG = True
