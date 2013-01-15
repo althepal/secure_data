@@ -69,7 +69,6 @@ $('#plain_text').change(function(){
 		<p>Store data that can only be accessed by you. All encryption and decryption is done in your browser, using the password that you enter, when you enter it. The data that is stored on the server is always encrypted, so even the web site operator cannot access your data.
 		<p>Encryption is done using industry standard AES encryption, which is virtually uncrackable. The library used is the Stanford Javascript Crypto Library (<a href='http://crypto.stanford.edu/sjcl/'>More info can be found here.</a>).
 	</div>
-	<div id='alertBar'></div>
 	<div id='stored_data_div' class=round>
 		<h1 style='border-bottom: 1px solid black;'>Stored Data</h1>
 		<div id='theData'>
@@ -85,8 +84,8 @@ $('#plain_text').change(function(){
 		Password: <input tabindex="3" type=password id='encrypt_pass' class='textin'><br>
 		<input tabindex="4" type=button id='saveButt' value='Save' onclick='saveData()' Xdisabled=true>
 		<input type=checkbox id='overwrite' Xdisabled=true> Overwrite Data
-		<br>
 	</div>
+	<div id='alertBar'></div>
 
 </div>
 <div id='view_popup' class=round></div>
