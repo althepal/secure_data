@@ -29,7 +29,7 @@ $('#plain_text').change(function(){
 	text_changed = false;
 
 	{% for d in stored_data %}
-	stored_data['{{ d.title }}'] = { data: '{{ d.data|safe }}', mod: '{{ d.last_mod|date:"U" }}' };
+	stored_data['{{ d.title|safe }}'] = { data: '{{ d.data|safe }}', mod: '{{ d.last_mod|date:"U" }}' };
 	{% endfor %}
 
 	function loadDataList()
@@ -41,10 +41,10 @@ $('#plain_text').change(function(){
 			var d = new Date(0);
 			d.setUTCSeconds(stored_data[t].mod)
 			var ford = $.format.date(d, "MMM d, yyyy HH:mm");
-			dataList += "<div class='listTitle'><b>" + t + '</b><br>' + ford + "</div> "
-			dataList += "<input type=button value='View' onclick='loadTitle(true, \""+t+"\")'> "
-			dataList += "<input type=button value='Edit' onclick='loadTitle(false, \""+t+"\")'> "
-			dataList += "<input type=button value='Delete' onclick='delTitle(\""+t+"\")'><br>";
+			dataList += "<div class='listTitle'><b>" + esc(t) + '</b><br>' + ford + "</div> "
+			dataList += "<input type=button value='View' onclick='loadTitle(\"view\", \""+(t)+"\")'> "
+			dataList += "<input type=button value='Edit' onclick='loadTitle(\"edit\", \""+(t)+"\")'> "
+			dataList += "<input type=button value='Delete' onclick='loadTitle(\"del\", \""+(t)+"\")'><br>";
 			dataList += "<div style='clear:both'></div></div>"
 		}
 		if (dataList == '')
@@ -54,65 +54,25 @@ $('#plain_text').change(function(){
 		$('#theData').html(dataList);
 	}
 
-	function delTitle(title)
+	function loadTitle(action, title)
 	{
-		$.msgBox({
-			type: "prompt",
-			title: "Enter password for <b>" + title +"</b>:",
-			inputs: [
-				{ header: "Pass", type: "password", name: "Pass"}
-			],
-			buttons: [
-			{ value: "Submit" }, {value: "Cancel"}
-			],
-			success: function(result, values){
-				if (result == "Submit")
-				{
-					var enc = stored_data[title].data;
-					var pass = values[0].value;
-					try
-					{
-						var plain_with_code = sjcl.decrypt(pass, enc);
-						var len = plain_with_code.length;
-						var plain = plain_with_code.substring(0, len - secret_code_len);
-						var secret_code = plain_with_code.substring(len - secret_code_len);
-						sendDelTitle(title, secret_code);
-					}
-					catch(e)
-					{
-						errorBox("bad password");
-					}
-
-				}
-			},
-		});
-		$('input[name="Pass"]').focus().keypress(function(e){
-			code = e.keyCode ? e.keyCode : e.which;
-			if (code == 13) {
-				$('input[name="Submit"]').click();
-			}
-		});
-
-	}
-
-	function loadTitle(view, title)
-	{
-		if (!view && text_changed)
+		if (action == 'edit' && text_changed)
 		{
 			confirmClear(title)
 			return;
 		}
+		var butt_name = action == 'del' ? "Submit" : "Decrypt";
 		$.msgBox({
 			type: "prompt",
-			title: "Enter password for <b>" + title +"</b>:",
+			title: "Enter password for <b>" + esc(title) +"</b>:",
 			inputs: [
 				{ header: "Pass", type: "password", name: "Pass"}
 			],
 			buttons: [
-			{ value: "Decrypt" }, {value: "Cancel"}
+			{ value: butt_name }, {value: "Cancel"}
 			],
 			success: function(result, values){
-				if (result == "Decrypt")
+				if (result == butt_name)
 				{
 					var enc = stored_data[title].data;
 					var pass = values[0].value;
@@ -123,12 +83,16 @@ $('#plain_text').change(function(){
 						var plain = plain_with_code.substring(0, len - secret_code_len);
 						var secret_code = plain_with_code.substring(len - secret_code_len);
 
-						if (view)
+						if (action == 'view')
 							viewPlain(title, plain);
-						else
+						else if (action == 'edit')
 						{
 							last_secret_code = [title, secret_code];
 							loadPlain(title, plain);
+						}
+						else if (action == 'del')
+						{
+							sendDelTitle(title, secret_code);
 						}
 					}
 					catch(e)
@@ -142,15 +106,19 @@ $('#plain_text').change(function(){
 		$('input[name="Pass"]').focus().keypress(function(e){
 			code = e.keyCode ? e.keyCode : e.which;
 			if (code == 13) {
-				$('input[name="Decrypt"]').click();
+				$('input[name="'+butt_name+'"]').click();
 			}
 		});
 
 	}
 
+	function esc(dirty)
+	{
+		return dirty.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	}
 	function viewPlain(title, msg)
 	{
-		var html = "<h1>" + title + "</h1>" + msg;
+		var html = "<h1>" + esc(title) + "</h1>" + esc(msg);
 		$('#view_popup').html(html).bPopup();
 	}
 
@@ -175,7 +143,9 @@ $('#plain_text').change(function(){
 			stored_data[data.title].mod = new Date().valueOf() / 1000;
 			loadDataList();
 			clearPlain(true);
-			infoBox("Save complete");
+//			infoBox("Save complete");
+			alertBar("Save Complete");
+
 		}
 		else
 		{
@@ -183,6 +153,13 @@ $('#plain_text').change(function(){
 			errorBox("Save Failed: " + reason);
 
 		}
+	}
+	function alertBar(msg)
+	{
+		var html = "<div class='alertMsg'>" + msg + "</div>";
+		var msg_bar = $(html);
+		$('#alertBar').prepend(msg_bar);
+		window.setTimeout(function(){msg_bar.slideUp();}, 3000);
 	}
 	function promptPass(match_pass)
 	{
@@ -330,7 +307,7 @@ $('#plain_text').change(function(){
 					clearPlain(true)
 					if (title)
 					{
-						loadTitle(false, title);
+						loadTitle("edit", title);
 					}
 				}
 			}
@@ -384,6 +361,17 @@ $('#plain_text').change(function(){
 
 <style>
 	h1 { margin-top: 0px; margin-bottom: 10px; }
+	.alertMsg {
+		XXdisplay:none;
+		height: 50px;
+		font-weight: bold;
+		font-size: 24px;
+		color: red;
+		background-color: yellow;
+		line-height: 50px;
+		padding-left: 10px;
+		margin-bottom: 5px;
+	}
 	.ta {
 		height: 250px;
 		width: 350px;
@@ -409,7 +397,6 @@ $('#plain_text').change(function(){
 	.stored_row {
 		padding-top: 5px;
 		padding-bottom: 5px;
-		XXborder-top: 1px solid black;
 		border-bottom: 1px solid black;
 	}
 	#content {
@@ -444,21 +431,21 @@ $('#plain_text').change(function(){
 		<p>Store data that can only be accessed by you. All encryption and decryption is done in your browser, using the password that you enter, when you enter it. The data that is stored on the server is always encrypted, so even the web site operator cannot access your data.
 		<p>Encryption is done using industry standard AES encryption, which is virtually uncrackable. The library used is the Stanford Javascript Crypto Library (<a href='http://crypto.stanford.edu/sjcl/'>More info can be found here.</a>).
 	</div>
-<div id='stored_data_div' class=round>
-	<h1 style='border-bottom: 1px solid black;'>Stored Data</h1>
-	<div id='theData'>
+	<div id='alertBar'></div>
+	<div id='stored_data_div' class=round>
+		<h1 style='border-bottom: 1px solid black;'>Stored Data</h1>
+		<div id='theData'>
+		</div>
 	</div>
-</div>
-
-<div style='' class='mainDivs'>
-	<span class='big_text'><b>Title:</b> </span><input tabindex="1" type=text id='plain_title' class='textin big_text'>
-	<input type=button id='clearData' value='Clear Data' onclick='clearPlain()'><br>
-	<textarea tabindex="2" class='ta' id='plain_text'></textarea><br>
-	Password: <input tabindex="3" type=password id='encrypt_pass' class='textin'><br>
-	<input tabindex="4" type=button id='saveButt2' value='Save' onclick='saveData()' Xdisabled=true>
-	<input type=checkbox id='overwrite' Xdisabled=true> Overwrite Data
-	<br>
-</div>
+	<div style='' class='mainDivs'>
+		<span class='big_text'><b>Title:</b> </span><input tabindex="1" type=text id='plain_title' class='textin big_text'>
+		<input type=button id='clearData' value='Clear Data' onclick='clearPlain()'><br>
+		<textarea tabindex="2" class='ta' id='plain_text'></textarea><br>
+		Password: <input tabindex="3" type=password id='encrypt_pass' class='textin'><br>
+		<input tabindex="4" type=button id='saveButt2' value='Save' onclick='saveData()' Xdisabled=true>
+		<input type=checkbox id='overwrite' Xdisabled=true> Overwrite Data
+		<br>
+	</div>
 
 </div>
 <div id='view_popup' class=round></div>
