@@ -154,12 +154,19 @@ $('#plain_text').change(function(){
 
 		}
 	}
+	var cnt = 0;
+	var mb;
 	function alertBar(msg)
 	{
 		var html = "<div class='alertMsg'>" + msg + "</div>";
 		var msg_bar = $(html);
 		$('#alertBar').prepend(msg_bar);
-		window.setTimeout(function(){msg_bar.slideUp();}, 3000);
+		$(msg_bar).click(function(){
+			msg_bar.slideUp("fast", "swing", function(){
+				$(this).remove();
+			});
+		});
+		window.setTimeout(function(){msg_bar.click();}, 2000);
 	}
 	function promptPass(match_pass)
 	{
@@ -362,14 +369,14 @@ $('#plain_text').change(function(){
 <style>
 	h1 { margin-top: 0px; margin-bottom: 10px; }
 	.alertMsg {
-		XXdisplay:none;
-		height: 50px;
+		cursor: pointer;
+		height: 2em;
 		font-weight: bold;
 		font-size: 24px;
 		color: red;
 		background-color: yellow;
-		line-height: 50px;
-		padding-left: 10px;
+		line-height: 2em;
+		padding-left: 0.5em;
 		margin-bottom: 5px;
 	}
 	.ta {
